@@ -88,15 +88,20 @@ async def analyze_dermatologist(file: UploadFile = File(...)):
         from PIL import Image
         import io
         
-        # Dynamically read .env so it hot-reloads instantly without Uvicorn restart flags
-        env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")
-        api_key = None
-        if os.path.exists(env_path):
-            with open(env_path, "r", encoding="utf-8") as f:
-                for line in f:
-                    if line.startswith("GEMINI_API_KEY="):
-                        api_key = line.strip().split("=", 1)[1].strip().strip('"\'')
-                        
+        # Check for system environment variables first (This solves Render Cloud hosting)
+        api_key = os.getenv("GEMINI_API_KEY")
+        
+        # If not set in the cloud, dynamically read local .env to allow live hot-updating on laptops
+        if not api_key or api_key == "PASTE_YOUR_API_KEY_HERE":
+            env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")
+            if os.path.exists(env_path):
+                with open(env_path, "r", encoding="utf-8") as f:
+                    for line in f:
+                        if line.startswith("GEMINI_API_KEY="):
+                            parsed_key = line.strip().split("=", 1)[1].strip().strip('"\'')
+                            if parsed_key and parsed_key != "PASTE_YOUR_API_KEY_HERE":
+                                api_key = parsed_key
+                                
         if not api_key or api_key == "PASTE_YOUR_API_KEY_HERE":
             return JSONResponse(content={"success": False, "error": "API Key missing! Please open the .env file in the project folder and paste your key."})
         
